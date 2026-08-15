@@ -83,10 +83,11 @@ cordis.yml 加一段配置即可，零新代码：
 
 - 痛点：直接写 dsh JSONL 文件绕过了 dsh 的全部校验（seq 连续性、header、surface 契约需自行保证，`format.ts:272-378` 的 `SessionLogScanner` 会在加载时检查），且 `SESSION_FORMAT_VERSION=0` 无兼容承诺，dsh 升级可能破坏读取。
 
-**3b 事后转换（最稳起步）**：`hermes sessions export --format jsonl`（含 lineage 拼接）→ 一个独立 Python/TS 转换器 → dsh `session.jsonl`。
+**3b 事后转换（最稳起步，已经过实测验证 ✅）**：直读 `~/.hermes/state.db`（只读）→ 独立 Python/TS 转换器 → dsh `session.jsonl` + sidecar。实测验证报告见 [002-附件-hermes日志转换dsh格式的实测验证.md](002-附件-hermes日志转换dsh格式的实测验证.md)（抽样 6 类来源、3,155 条消息，消息体映射语义无损）。
 
-- 优点：不侵入任何运行时，hermes/dsh 各自升级互不影响，转换器是唯一耦合点；hermes 持久层本来就存完整 transcript，信息无损（除 delta）。
-- 缺点：非实时；多模态工具结果只有文本摘要（hermes 侧固有限制）。
+- 优点：不侵入任何运行时，hermes/dsh 各自升级互不影响，转换器是唯一耦合点。
+- 缺点：非实时。
+- 实测修正（详见附件）：`hermes sessions export` 默认丢弃 inactive/compacted 行，只能用于快速原型，归档级必须直读 DB；per-step usage hermes 未持久化（dsh `usage` 只能留空）；dsh `SessionHeader` 封闭，hermes 会话级元数据须放 sidecar。
 
 ### 方案四：经 dsh SDK / ACP 从外部注入事件 —— 不可行
 
@@ -106,7 +107,9 @@ dsh 的 wire 协议没有 append 动词（事实基础一.5）。要让外部进
 
 ## 推荐路径
 
-1. **先做方案一**：半小时内验证 `hermes acp` 与 dsh ACP 客户端能否握手、跑通一次委派。这同时回答了「hermes 的 ACP 事件流质量如何」——方案二依赖同一通道。
-2. **确认真实需求是 A 还是 B**：若你享受的是「在 dsh 里统一入口」，投入方案二；若 hermes 仍是独立主力（Telegram/TUI/CLI 随手用），方案二帮不了你，走方案三。
-3. **解读 B 下**：先 3b 事后转换（一天内可用，离线安全），有实时需求再升级 3a；3a 的写入端建议做成「生成 dsh 兼容 JSONL 的独立文件」，并固定对照 `format.ts` 的校验逻辑自测，降低版本 0 漂移的爆雷面。
-4. **无论哪条路**：重放/转换时坚持只用 dsh 核心事件类型；hermes 会话 id → dsh 会话的映射单独存一份对照表（如写入 dsh 会话 header 附近的元数据或外部小库），便于双向追溯。
+**用户已选定方案三（2026-08-15）**：无论 hermes 如何使用，只要能把 hermes 现有会话日志无损转换到 dsh 统一格式。方案三 b（事后转换）已通过生产库实测验证，报告见 [002-附件](002-附件-hermes日志转换dsh格式的实测验证.md)；方案一/二保留为未来「在 dsh 内统一入口」时的备选。
+
+1. ~~先做方案一~~ → **做方案三 b 转换器**：直读 `state.db`（只读），按附件「转换器设计要点」合成 dsh 事件 + sidecar；首版 inactive 行进 sidecar，不做 `surfaceOp: replace`。
+2. 转换器自测对照 `format.ts` 的校验逻辑（header、seq 连续、版本 0），降低版本 0 格式漂移的爆雷面；dsh 侧可用 `session-persistence-jsonl` 的 `SessionLogScanner` 做加载冒烟验证。
+3. 坚持只用 dsh 核心事件类型；hermes 会话 id → dsh 会话 id 的对照写入 sidecar 与 header `parentSession`，便于双向追溯。
+4. 若日后有实时需求，再评估方案三 a（hermes 插件钩子实时翻译）。
