@@ -716,10 +716,11 @@ export class Fiber {
    * @throws {CordisError} `INACTIVE_EFFECT` when the fiber is already disposed.
    */
   async restart() {
-    this.assertActive()
-    this._setEpoch(INACTIVE)
-    this._refresh()
-    await this.await()
+    const fiber = this.ctx.fiber
+    fiber.assertActive()
+    fiber._setEpoch(INACTIVE)
+    fiber._refresh()
+    await fiber.await()
   }
 
   /**
@@ -734,21 +735,22 @@ export class Fiber {
    * @throws when validation, an update listener, or the restarted plugin fails.
    */
   update(config: any, noSave = false) {
-    this.assertActive()
-    this._config = config
-    if (this.state !== FiberState.ACTIVE) {
+    const fiber = this.ctx.fiber
+    fiber.assertActive()
+    fiber._config = config
+    if (fiber.state !== FiberState.ACTIVE) {
       // Config resolution may access injected services, so defer it until the
       // fiber can activate.
-      this._error = undefined
-      this._setEpoch(INACTIVE)
-      this._refresh()
+      fiber._error = undefined
+      fiber._setEpoch(INACTIVE)
+      fiber._refresh()
       return
     }
-    config = this._resolveConfig(config)
-    return this.context.waterfall(this, 'internal/update', config, noSave, () => {
-      this.config = config
-      this._error = undefined
-      return this.restart()
+    config = fiber._resolveConfig(config)
+    return fiber.context.waterfall(fiber, 'internal/update', config, noSave, () => {
+      fiber.config = config
+      fiber._error = undefined
+      return fiber.restart()
     })
   }
 }
