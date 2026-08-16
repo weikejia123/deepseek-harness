@@ -6,6 +6,13 @@ DeepSeek Harness is a plugin-based agent harness on vendored Cordis: **everythin
 
 **Remove this section at the first tagged release.** With no external consumers, prefer the correct foundation over compatibility shims: rename or repackage freely and update every reference together. Backends reject old on-disk formats. SQLite uses monotonic `SCHEMA_VERSION`; `dsh-session` keeps `SESSION_FORMAT_VERSION` at `0` with no compatibility promise.
 
+## Branching (fork-local)
+
+- `master` mirrors the official upstream (`upstream/master` = `deepseek-ai/deepseek-harness`) exactly. Never commit to `master`; it carries no local modifications and tracks `upstream/master`.
+- All secondary development lands on `wkj-dev` (pushed to `gitea`/`origin`), including vendor syncs and docs.
+- Sync flow: `git fetch upstream` → move `master` to `upstream/master` (fast-forward; if a stray local commit exists, verify it is already an ancestor of `wkj-dev`, then `git branch -f master upstream/master`) → merge `master` into `wkj-dev`.
+- This section is fork-local: when an upstream sync changes this file, keep it and merge the upstream changes around it.
+
 ## Repository layout
 
 ```
