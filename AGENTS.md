@@ -13,6 +13,10 @@ DeepSeek Harness is a plugin-based agent harness on vendored Cordis: **everythin
 - Sync flow: `git fetch upstream` → move `master` to `upstream/master` (fast-forward; if a stray local commit exists, verify it is already an ancestor of `wkj-dev`, then `git branch -f master upstream/master`) → merge `master` into `wkj-dev`.
 - This section is fork-local: when an upstream sync changes this file, keep it and merge the upstream changes around it.
 
+## Fork conventions (fork-local)
+
+Fork-only conventions (auto-commit, commit-message rules, fork work layout) live in [FORK-CONVENTIONS.md](FORK-CONVENTIONS.md) — read it at session start before any repo work; keep all fork-only rules there, never in this file.
+
 ## Repository layout
 
 ```
