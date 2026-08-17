@@ -1,5 +1,5 @@
 // 会话状态球 · Client 半区（纯客户端实现，无需 Host 半区）
-// 数据来源：shell.overlay 标准 props 的 useSessions 快照选择器 hook（实时推送，无需轮询）；
+// 数据来源：shell.overlay 标准 props 的 useSessions / useWorkspaces 快照选择器 hook（实时推送，无需轮询）；
 // 跳转动作：ctx.sessions.open(id)。会话状态语义直接复用侧边栏：
 //   running             → 运行中
 //   completed           → 完成但未选择未打开（侧边栏绿色"完成"提醒）
@@ -8,7 +8,11 @@
 // 交互设计（一瞥即知，平静优先，仅在有变化时升级提示）：
 //   中心数字 = 顶层会话总数；外圈 conic 弧 = 运行中占比（工作量）；右上徽标 = 需要你注意的数量。
 //   常态蓝（空闲）→ 暖橙呼吸（有运行中）→ 红色徽标脉冲（完成待查看 / 等待交互，仅计数变化时重播一次）。
-//   悬停提示一行摘要；点击展开面板（需注意 → 运行中 → 其他），点击行跳转会话；拖拽可移动。
+//   悬停提示一行摘要；点击展开面板（需注意 → 运行中 → 其他，各段内保持时间倒序），点击行跳转会话；拖拽可移动。
+//   会话行两行布局：第一行 状态点+标题+状态标签，第二行 归属项目（蓝）+相对时间（灰）。
+//   归属项目三级来源：① 工作区 sessionIds 权威账目 → 工作区 title（支持重命名）；
+//   ② 会话 cwd 与工作区 path 精确/最长前缀匹配；③ cwd 目录名兜底。
+//   标题本身已是项目名（未命名会话）时不重复显示项目行。
 //   完成未查看可"全部标为已读"（页面会话期内本地记认；当前正在查看的会话不计数）。
 return {
   apply(ctx) {
@@ -145,6 +149,7 @@ return {
   padding: 6px 8px;
   border-radius: 8px;
   cursor: pointer;
+  flex-wrap: wrap;
 }
 .dsh-orb-row:hover { background: rgba(255, 255, 255, 0.08); }
 .dsh-orb-row-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #5c6b8a; }
@@ -163,6 +168,21 @@ return {
   color: #e6e9f2;
 }
 .dsh-orb-row-meta { color: #8f98bd; font-size: 10px; flex: none; }
+.dsh-orb-row-sub {
+  flex-basis: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-left: 16px;
+  font-size: 10px;
+  color: #8f98bd;
+}
+.dsh-orb-row-project {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #7aa2ff;
+}
 .dsh-orb-row-label { font-size: 10px; flex: none; border-radius: 5px; padding: 0 5px; }
 .dsh-orb-row-label.done { color: #69db7c; background: rgba(64, 192, 87, 0.14); }
 .dsh-orb-row-label.pending { color: #ffa8a8; background: rgba(250, 82, 82, 0.16); }
@@ -208,7 +228,9 @@ return {
 
     function SessionOrb(props) {
       const useSessions = props.useSessions
+      const useWorkspaces = props.useWorkspaces
       const list = useSessions((s) => s)
+      const wsList = useWorkspaces((s) => s)
       const [open, setOpen] = React.useState(false)
       const [pos, setPos] = React.useState(null)
       const [, setTick] = React.useState(0)
@@ -238,6 +260,31 @@ return {
 
       const total = top.length
       const frac = total > 0 ? running.length / total : 0
+
+      // 归属项目解析：① 工作区 sessionIds 权威账目 → 工作区 title；② cwd 与工作区 path 精确/最长前缀匹配；③ cwd 目录名兜底
+      const wsItems = (wsList && wsList.items) || []
+      const wsBySession = {}
+      const wsByPath = {}
+      for (const ws of wsItems) {
+        for (const sid of ws.sessionIds || []) wsBySession[sid] = ws.title
+        if (ws.path) wsByPath[ws.path] = ws.title
+      }
+      const projectOf = (s) => {
+        if (wsBySession[s.id]) return wsBySession[s.id]
+        if (s.cwd) {
+          if (wsByPath[s.cwd]) return wsByPath[s.cwd]
+          const cwd = s.cwd.endsWith('/') ? s.cwd : s.cwd + '/'
+          let best = ''
+          for (const p of Object.keys(wsByPath)) {
+            const prefix = p.endsWith('/') ? p : p + '/'
+            if (cwd.startsWith(prefix) && p.length > best.length) best = p
+          }
+          if (best) return wsByPath[best]
+          const base = s.cwd.replace(/[/\\]+$/, '').split(/[/\\]/).pop()
+          if (base) return base
+        }
+        return ''
+      }
 
       const handleDown = (e) => {
         const el = e.currentTarget
@@ -320,17 +367,24 @@ return {
 
       if (!open) return ring
 
-      const row = (s, dot, label, labelCls) => React.createElement('div', {
-        key: s.id,
-        className: 'dsh-orb-row',
-        onClick: () => openSession(s.id),
-        title: '打开会话：' + s.displayTitle,
-      },
-        React.createElement('span', { className: 'dsh-orb-row-dot ' + dot }),
-        React.createElement('span', { className: 'dsh-orb-row-title' }, s.displayTitle),
-        label ? React.createElement('span', { className: 'dsh-orb-row-label ' + labelCls }, label) : null,
-        React.createElement('span', { className: 'dsh-orb-row-meta' }, rel(s.updatedAt)),
-      )
+      const row = (s, dot, label, labelCls) => {
+        const project = projectOf(s)
+        const showProject = project !== '' && project !== s.displayTitle
+        return React.createElement('div', {
+          key: s.id,
+          className: 'dsh-orb-row',
+          onClick: () => openSession(s.id),
+          title: (project ? '项目：' + project + ' · ' : '') + '打开会话：' + s.displayTitle,
+        },
+          React.createElement('span', { className: 'dsh-orb-row-dot ' + dot }),
+          React.createElement('span', { className: 'dsh-orb-row-title' }, s.displayTitle),
+          label ? React.createElement('span', { className: 'dsh-orb-row-label ' + labelCls }, label) : null,
+          React.createElement('span', { className: 'dsh-orb-row-sub' },
+            showProject ? React.createElement('span', { className: 'dsh-orb-row-project' }, project) : null,
+            React.createElement('span', { className: 'dsh-orb-row-meta' }, rel(s.updatedAt)),
+          ),
+        )
+      }
 
       const pendingRows = pending.map((s) => row(s, 'pending', pendingLabel(s.pendingInteraction), 'pending'))
       const doneRows = completed.map((s) => row(s, 'done', '完成待查看', 'done'))
