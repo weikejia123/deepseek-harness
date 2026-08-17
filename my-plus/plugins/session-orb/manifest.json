@@ -1,0 +1,7 @@
+{
+  "id": "session-orb",
+  "name": "session-orb",
+  "purpose": "会话状态球：悬浮球一瞥即知 dsh 全局工作状态（运行中会话数、完成未查看、等待交互），点击面板跳转会话。",
+  "idPrefix": "sess",
+  "version": "0.1.0"
+}
