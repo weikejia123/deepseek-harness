@@ -273,10 +273,6 @@
     - id: ui-trajectory
       name: '@deepseek-ai/dsh-client-ui-trajectory'
 
-    # Session status orb: the frame overlay showing global session workload.
-    - id: ui-session-orb
-      name: '@deepseek-ai/dsh-client-ui-session-orb'
-
 # ── the agent plane moves behind agent presets ─────────────────────────────
 #
 # Every row below composes what ONE agent contributes to the host registries:
