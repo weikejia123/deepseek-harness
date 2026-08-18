@@ -9,11 +9,16 @@
 //   中心数字 = 顶层会话总数；外圈 conic 弧 = 运行中占比（工作量）；右上徽标 = 需要你注意的数量。
 //   常态蓝（空闲）→ 暖橙呼吸（有运行中）→ 红色徽标脉冲（完成待查看 / 等待交互，仅计数变化时重播一次）。
 //   悬停提示一行摘要；点击展开面板（需注意 → 运行中 → 其他，各段内保持时间倒序），点击行跳转会话；拖拽可移动。
-//   会话行两行布局：第一行 状态点+标题+状态标签，第二行 归属项目（蓝）+相对时间（灰）。
+//   其他会话分页显示，1 页 8 条。
+//   会话行两行布局：第一行 状态点+标题+状态标签，第二行 归属项目（蓝）+相对时间（灰）+ 复制路径按钮（⧉，点击复制完整 cwd 路径）。
 //   归属项目三级来源：① 工作区 sessionIds 权威账目 → 工作区 title（支持重命名）；
 //   ② 会话 cwd 与工作区 path 精确/最长前缀匹配；③ cwd 目录名兜底。
 //   标题本身已是项目名（未命名会话）时不重复显示项目行。
 //   完成未查看可"全部标为已读"（页面会话期内本地记认；当前正在查看的会话不计数）。
+//   提示音：默认开启、可关闭（设置面板 General 区「会话状态球提示音」行，或悬浮球弹窗顶部 🔔 图标按钮，两处状态同步）。
+//   有待注意项（审批/提问/完成未查看）时播放悦耳短音 1 次并同步扩散绿色水波涟漪（三层波纹，半径扩至 200px，显著提示）；
+//   涟漪仅在提示音触发时出现一次（播完即卸载），点击/拖拽不会触发；
+//   若用户始终未查看（注意项持续存在），每 10 秒重播；注意项清空或开关关闭即重置计时。
 return {
   apply(ctx) {
     const slots = ctx.get('slots')
@@ -183,6 +188,20 @@ return {
   white-space: nowrap;
   color: #7aa2ff;
 }
+.dsh-orb-copy {
+  margin-left: auto;
+  flex: none;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: #8f98bd;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 4px;
+}
+.dsh-orb-copy:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+.dsh-orb-copy.done { color: #69db7c; }
 .dsh-orb-row-label { font-size: 10px; flex: none; border-radius: 5px; padding: 0 5px; }
 .dsh-orb-row-label.done { color: #69db7c; background: rgba(64, 192, 87, 0.14); }
 .dsh-orb-row-label.pending { color: #ffa8a8; background: rgba(250, 82, 82, 0.16); }
@@ -207,6 +226,70 @@ return {
   margin-left: auto;
 }
 .dsh-orb-markread:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.dsh-orb-beep {
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #c6cbe0;
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+}
+.dsh-orb-beep:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.dsh-orb-beep.off { color: #8f98bd; opacity: 0.65; }
+/* 涟漪：仅在提示音触发时挂载（播完即移除），三层波纹错峰扩散 + 中心光晕，emerald→teal 渐变 */
+.dsh-orb-ripple {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.24) 0%, rgba(45, 212, 191, 0.09) 42%, rgba(45, 212, 191, 0) 68%);
+  animation: dshOrbRipple 1.5s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+.dsh-orb-ripple-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(52, 211, 153, 0.52);
+  animation: dshOrbRippleRing 1.5s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+.dsh-orb-ripple-ring.r2 { border-color: rgba(45, 212, 191, 0.44); animation-delay: 0.1s; }
+.dsh-orb-ripple-ring.r3 { border-color: rgba(134, 239, 172, 0.34); animation-delay: 0.2s; }
+@keyframes dshOrbRipple {
+  from { transform: scale(1); opacity: 0.95; }
+  to { transform: scale(7.4); opacity: 0; }
+}
+@keyframes dshOrbRippleRing {
+  from { transform: scale(1); opacity: 0.9; }
+  to { transform: scale(7.4); opacity: 0; }
+}
+.dsh-orb-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #8f98bd;
+  font-size: 10px;
+  padding: 2px 0 4px;
+}
+.dsh-orb-pager button {
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #c6cbe0;
+  border-radius: 6px;
+  min-width: 22px;
+  height: 20px;
+  font-size: 11px;
+  line-height: 1;
+}
+.dsh-orb-pager button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.dsh-orb-pager button:disabled { opacity: 0.35; cursor: default; }
 `))
 
     const rel = (ts) => {
@@ -226,6 +309,54 @@ return {
       return '等待你的输入'
     }
 
+    // 悦耳短暂提示音：Web Audio 生成上行三音琶音（A5→C#6→E6，正弦波，每音 90ms 错峰，整体约 0.3 秒），
+    // 无音频文件、无网络；AudioContext 首次被浏览器策略挂起时先 resume 再调度，失败则静默降级。
+    const playChime = (beepState) => {
+      try {
+        const AC = (typeof AudioContext !== 'undefined' && AudioContext)
+          || (typeof webkitAudioContext !== 'undefined' && webkitAudioContext)
+        if (!AC) return
+        if (!beepState.ac) beepState.ac = new AC()
+        const ac = beepState.ac
+        const schedule = () => {
+          const now = ac.currentTime
+          const notes = [880, 1108.73, 1318.51]
+          notes.forEach((freq, i) => {
+            const osc = ac.createOscillator()
+            const gain = ac.createGain()
+            osc.type = 'sine'
+            osc.frequency.value = freq
+            const t0 = now + i * 0.09
+            gain.gain.setValueAtTime(0.0001, t0)
+            gain.gain.exponentialRampToValueAtTime(0.16, t0 + 0.02)
+            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22)
+            osc.connect(gain)
+            gain.connect(ac.destination)
+            osc.start(t0)
+            osc.stop(t0 + 0.25)
+          })
+        }
+        if (ac.state === 'suspended') ac.resume().then(schedule).catch(() => { /* 音频被策略阻止：静默降级 */ })
+        else schedule()
+      } catch (_err) { /* 音频不可用：静默降级，不影响悬浮球本体 */ }
+    }
+
+    // 提示音偏好：面板开关与设置面板行共享同一状态（页面会话期内有效，刷新后重置为默认开启）。
+    // 轻量订阅 store：apply 级单例，组件通过 useBeepPref 读写。
+    const beepPref = { on: true, listeners: new Set() }
+    const setBeepPref = (on) => {
+      beepPref.on = on
+      for (const fn of beepPref.listeners) fn(on)
+    }
+    const useBeepPref = () => {
+      const [on, setOn] = React.useState(beepPref.on)
+      React.useEffect(() => {
+        beepPref.listeners.add(setOn)
+        return () => { beepPref.listeners.delete(setOn) }
+      }, [])
+      return [on, setBeepPref]
+    }
+
     function SessionOrb(props) {
       const useSessions = props.useSessions
       const useWorkspaces = props.useWorkspaces
@@ -233,30 +364,71 @@ return {
       const wsList = useWorkspaces((s) => s)
       const [open, setOpen] = React.useState(false)
       const [pos, setPos] = React.useState(null)
-      const [, setTick] = React.useState(0)
+      const [tick, setTick] = React.useState(0)
       const ack = React.useState(() => new Set())[0]
       const drag = React.useState(() => ({ active: false, startX: 0, startY: 0, baseX: 0, baseY: 0, moved: 0, vw: 1200, vh: 800 }))[0]
+      // 提示音偏好（与设置面板行共享）；涟漪：visible 控制挂载、key 递增强制重播，仅提示音触发时出现
+      const [beepOn, setBeepOn] = useBeepPref()
+      const [rippleVisible, setRippleVisible] = React.useState(false)
+      const [rippleKey, setRippleKey] = React.useState(0)
+      // 其他会话分页：1 页 8 条
+      const [otherPage, setOtherPage] = React.useState(0)
+      // 刚复制过路径的会话 id（按钮短暂显示 ✓ 反馈）
+      const [copiedId, setCopiedId] = React.useState(null)
+      // 播放状态：上次播放时间、上一秒是否有注意项、音频上下文单例
+      const beepState = React.useState(() => ({ last: 0, had: false, ac: null }))[0]
 
-      // 30 秒一次轻量重渲染，刷新"刚刚/N 分钟前"等相对时间
+      // 每秒轻量重渲染：刷新"刚刚/N 分钟前"等相对时间，并驱动提示音重播检查
       React.useEffect(() => {
         if (!timer) return undefined
-        return timer.interval(() => setTick((t) => t + 1), 30000)
+        return timer.interval(() => setTick((t) => t + 1), 1000)
       }, [])
 
       const current = list.current
-      React.useEffect(() => {
-        if (current) ack.add(current)
-      }, [current])
+      // 未读 = 完成且未查看：completed 事实由运行时维护（非当前会话在 运行→空闲 时置位，打开会话即清除）。
+      // 本地 ack 只记录显式记认（"全部标为已读"与点击行），绝不因"曾为当前会话"自动记认——
+      // 否则在 A 发消息后切到 B、A 随后完成时，A 会被误判为已读而从列表中整条消失。
+      const isUnread = (s) => s.completed && s.id !== current && !ack.has(s.id)
 
       const byId = list.byId || {}
       const rows = (list.ids || []).map((id) => byId[id]).filter((s) => s && !s.blank)
       const top = rows.filter((s) => !s.parentId && s.origin !== 'subagent')
       const running = top.filter((s) => s.running)
-      const completed = top.filter((s) => s.completed && s.id !== current && !ack.has(s.id))
+      const completed = top.filter(isUnread)
       const pending = top.filter((s) => s.pendingInteraction && s.id !== current)
       const attention = pending.concat(completed)
-      const others = top.filter((s) => !s.running && !s.completed && !s.pendingInteraction)
+      const others = top.filter((s) => !s.running && !s.pendingInteraction && !isUnread(s))
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+      // 其他会话分页：1 页 8 条；当前页超出新总数时收敛到最后一页
+      const OTHER_PAGE_SIZE = 8
+      const otherPages = Math.max(1, Math.ceil(others.length / OTHER_PAGE_SIZE))
+      const otherPageClamped = Math.min(otherPage, otherPages - 1)
+
+      // 提示音：开关开启且有注意项时——从无到有立即播放 1 次；持续存在（用户始终未查看）则每 10 秒重播。
+      // 注意项归零或开关关闭即重置计时，下次再有注意项时重新"从无到有"播放。
+      // 涟漪与提示音同拍：仅在此处触发（+1 键重挂载），动画播完即卸载，点击/拖拽的重渲染绝不产生涟漪。
+      React.useEffect(() => {
+        if (!beepOn || attention.length === 0) {
+          beepState.had = false
+          beepState.last = 0
+          return
+        }
+        const now = Date.now()
+        if (!beepState.had || now - beepState.last >= 10000) {
+          playChime(beepState)
+          setRippleKey((k) => k + 1)
+          setRippleVisible(true)
+          beepState.last = now
+        }
+        beepState.had = true
+      }, [attention.length, beepOn, tick])
+
+      // 涟漪显式生命周期：出现后 1.7s（动画 1.5s + 余量）卸载，杜绝残留
+      React.useEffect(() => {
+        if (!rippleVisible) return undefined
+        if (!timer) return undefined
+        return timer.timeout(() => setRippleVisible(false), 1700)
+      }, [rippleVisible, rippleKey])
 
       const total = top.length
       const frac = total > 0 ? running.length / total : 0
@@ -318,6 +490,16 @@ return {
         if (drag.moved < 6) setOpen((o) => !o)
       }
 
+      const copyPath = (e, path, id) => {
+        e.stopPropagation()
+        const nav = typeof navigator !== 'undefined' ? navigator : undefined
+        if (nav === undefined || typeof nav.clipboard !== 'object' || nav.clipboard === null) return
+        nav.clipboard.writeText(path).then(() => {
+          setCopiedId(id)
+          if (timer !== undefined) timer.timeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 1500)
+        }).catch(() => { /* 剪贴板被拒：静默，不影响其他交互 */ })
+      }
+
       const openSession = (id) => {
         ack.add(id)
         if (sessionsSvc !== undefined) sessionsSvc.open(id)
@@ -359,6 +541,13 @@ return {
         onPointerUp: handleUp,
         onPointerCancel: handleUp,
       },
+        rippleVisible
+          ? React.createElement('div', { key: 'ripple' + rippleKey, className: 'dsh-orb-ripple' },
+              React.createElement('span', { className: 'dsh-orb-ripple-ring r1' }),
+              React.createElement('span', { className: 'dsh-orb-ripple-ring r2' }),
+              React.createElement('span', { className: 'dsh-orb-ripple-ring r3' }),
+            )
+          : null,
         React.createElement('div', { className: ballClass },
           centerText,
           badge,
@@ -370,6 +559,7 @@ return {
       const row = (s, dot, label, labelCls) => {
         const project = projectOf(s)
         const showProject = project !== '' && project !== s.displayTitle
+        const hasCwd = typeof s.cwd === 'string' && s.cwd.length > 0
         return React.createElement('div', {
           key: s.id,
           className: 'dsh-orb-row',
@@ -382,6 +572,14 @@ return {
           React.createElement('span', { className: 'dsh-orb-row-sub' },
             showProject ? React.createElement('span', { className: 'dsh-orb-row-project' }, project) : null,
             React.createElement('span', { className: 'dsh-orb-row-meta' }, rel(s.updatedAt)),
+            hasCwd
+              ? React.createElement('button', {
+                  className: 'dsh-orb-copy' + (copiedId === s.id ? ' done' : ''),
+                  onClick: (e) => copyPath(e, s.cwd, s.id),
+                  title: '复制项目完整路径：' + s.cwd,
+                  'aria-label': '复制项目完整路径',
+                }, copiedId === s.id ? '✓' : '⧉')
+              : null,
           ),
         )
       }
@@ -390,7 +588,8 @@ return {
       const doneRows = completed.map((s) => row(s, 'done', '完成待查看', 'done'))
       const runRows = running.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
         .map((s) => row(s, 'running', null, ''))
-      const otherRows = others.slice(0, 12).map((s) => row(s, '', null, ''))
+      const otherRows = others.slice(otherPageClamped * OTHER_PAGE_SIZE, (otherPageClamped + 1) * OTHER_PAGE_SIZE)
+        .map((s) => row(s, '', null, ''))
 
       const panelStyle = pos
         ? {
@@ -409,6 +608,12 @@ return {
           attention.length > 0
             ? React.createElement('span', { className: 'dsh-orb-chip hot' }, '需查看 ' + attention.length)
             : null,
+          React.createElement('button', {
+            className: 'dsh-orb-beep' + (beepOn ? '' : ' off'),
+            onClick: () => setBeepOn(!beepOn),
+            title: beepOn ? '提示音已开启：有待处理事项时播放提示音（点击关闭）' : '提示音已关闭（点击开启）',
+            'aria-label': beepOn ? '关闭提示音' : '开启提示音',
+          }, beepOn ? '🔔' : '🔕'),
           React.createElement('button', { className: 'dsh-orb-close', onClick: () => setOpen(false), title: '关闭' }, '×'),
         ),
         React.createElement('div', { className: 'dsh-orb-body' },
@@ -424,6 +629,21 @@ return {
           otherRows.length > 0
             ? React.createElement('div', { className: 'dsh-orb-rows' }, otherRows)
             : React.createElement('div', { className: 'dsh-orb-empty' }, '没有其他会话'),
+          otherPages > 1
+            ? React.createElement('div', { className: 'dsh-orb-pager' },
+                React.createElement('button', {
+                  disabled: otherPageClamped <= 0,
+                  onClick: () => setOtherPage(otherPageClamped - 1),
+                  title: '上一页',
+                }, '‹'),
+                React.createElement('span', null, (otherPageClamped + 1) + ' / ' + otherPages),
+                React.createElement('button', {
+                  disabled: otherPageClamped >= otherPages - 1,
+                  onClick: () => setOtherPage(otherPageClamped + 1),
+                  title: '下一页',
+                }, '›'),
+              )
+            : null,
           React.createElement('div', { className: 'dsh-orb-foot' },
             React.createElement('span', null, '数据实时同步自会话列表'),
             completed.length > 0
@@ -439,9 +659,44 @@ return {
       return React.createElement('div', { className: 'dsh-orb-root' }, ring, open ? panel : null)
     }
 
+    // 设置面板 · General 区的提示音偏好行（与悬浮球面板开关共享同一状态）
+    function BeepSettingRow() {
+      const [on, setOn] = useBeepPref()
+      return React.createElement('div', {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          padding: '2px 0',
+        },
+      },
+        React.createElement('span', null, '会话状态球提示音'),
+        React.createElement('button', {
+          onClick: () => setOn(!on),
+          title: on ? '有待处理事项时播放提示音' : '关闭后不再播放提示音',
+          style: {
+            flex: 'none',
+            minWidth: 56,
+            cursor: 'pointer',
+            border: '1px solid rgba(255, 255, 255, 0.22)',
+            borderRadius: 8,
+            padding: '3px 10px',
+            fontSize: 12,
+            background: on ? 'rgba(64, 192, 87, 0.16)' : 'rgba(255, 255, 255, 0.06)',
+            color: on ? '#69db7c' : '#8f98bd',
+          },
+        }, on ? '开' : '关'),
+      )
+    }
+
     slots.inject('shell.overlay', () => slots.register(
       { name: 'shell.overlay', id: 'session-orb', order: 1001, label: '会话状态球' },
       (props) => React.createElement(SessionOrb, props),
+    ))
+    slots.inject('settings.general.item', () => slots.register(
+      { name: 'settings.general.item', id: 'session-orb-beep', order: 30, label: '会话状态球提示音' },
+      (props) => React.createElement(BeepSettingRow, props),
     ))
   },
 }
