@@ -1,7 +1,0 @@
-{
-  "id": "sysmon",
-  "name": "sysmon-ball",
-  "purpose": "可拖动的系统监控悬浮球：展示 CPU/内存占用、进程列表与监听端口。",
-  "idPrefix": "sysmon",
-  "version": "0.2.0"
-}
